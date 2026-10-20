@@ -79,7 +79,13 @@ function loadBackgroundMedia() {
   if(!item?.src)return;
   const media=document.createElement(item.type==='video'?'video':'img');
   media.id='bg-media';media.src=item.src;
-  if(item.type==='video'){media.muted=true;media.loop=true;media.autoplay=true;media.playsInline=true;}
+  if(item.type==='video'){
+    media.muted=true;
+    media.loop=true;
+    media.autoplay=true;
+    media.playsInline=true;
+    media.preload='metadata';
+  }
   wrap.replaceChildren(media);document.body.classList.add('has-bg-media');
   if(item.type==='video')document.body.classList.add('has-bg-animated');
 }
@@ -252,20 +258,29 @@ function updateDots() {
   });
 }
 
+function ensureIntroFrame() {
+  if (!introFrame.src || !introFrame.src.includes('gift/index.html')) {
+    introFrame.src = "gift/index.html?mode=intro";
+  }
+}
+
 function handleInput(value) {
   if (lockScreen.classList.contains("unlocked")) return;
   if (enteredPin.length >= String(config.pin).length) return;
   enteredPin += value;
   updateDots();
-  if (enteredPin.length === String(config.pin).length) {
-    if (enteredPin === String(config.pin)) window.CalendarScore.prepare();
-    setTimeout(checkPin, 280);
+  ensureIntroFrame();
+  if (enteredPin.length === 1) {
+    window.CalendarScore.prepare();
   }
-}
-
-function checkPin() {
-  if (enteredPin === String(config.pin)) unlock();
-  else fail();
+  if (enteredPin.length === String(config.pin).length) {
+    if (enteredPin === String(config.pin)) {
+      window.CalendarScore.start();
+      setTimeout(unlock, 250);
+    } else {
+      setTimeout(fail, 280);
+    }
+  }
 }
 
 function unlock() {
@@ -668,9 +683,7 @@ function startIntro() {
       if (!introOverlay.hidden) introContinueBtn.classList.add("ready");
     }, 5200);
   }
-  if (!introFrame.src || !introFrame.src.includes('gift/index.html')) {
-    introFrame.src = "gift/index.html?mode=intro";
-  }
+  ensureIntroFrame();
   window.CalendarScore.start();
 }
 function stopIntro() {
@@ -711,8 +724,8 @@ async function init() {
     } else {
       imageSound.removeAttribute("src");
     }
-    document.getElementById("calendar-music").src=config.music.intro;
-    introFrame.src = "gift/index.html?mode=intro";
+    const introSrc = (config.music?.intro || '').endsWith('.wav') ? config.music.intro.replace(/\.wav$/i, '.mp3') : config.music?.intro;
+    if (introSrc) document.getElementById("calendar-music").src = introSrc;
     buildNumpad();
     renderSongList();
     loadSong(config.songs[songIndex]);

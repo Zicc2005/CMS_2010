@@ -34,6 +34,7 @@ window.TEMPLATE_FILES = [
   "img/asset/letter.png",
   "img/asset/music.png",
   "gift/assets/CREDITS.txt",
+  "gift/assets/calendar-melody.mp3",
   "gift/assets/calendar-melody.wav",
   "gift/assets/flower-heart-still.jpg",
   "gift/assets/flower-heart.gif",
