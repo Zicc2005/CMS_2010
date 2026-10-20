@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080311"><title>Anh ♥ Em — Chúc mừng ngày Phụ nữ Việt Nam 20/10</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="integrated.css">
 <script>
+  (function() {
+    var p = location.pathname;
+    if (!p.endsWith('/')) {
+      p = p.endsWith('index.html') ? p.slice(0, -10) : p + '/';
+    }
+    var b = document.createElement('base');
+    b.href = location.origin + p;
+    document.head.prepend(b);
+  })();
   if (new URLSearchParams(location.search).get('mode') === 'intro') {
     document.documentElement.classList.add('intro-mode');
   }

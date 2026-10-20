@@ -614,7 +614,6 @@ async function exportZipClientSide(folderName) {
     framework: null,
     buildCommand: null,
     outputDirectory: '.',
-    cleanUrls: true,
     headers: [
       {
         source: '/content/site.json',
