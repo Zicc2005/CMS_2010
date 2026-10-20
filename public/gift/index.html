@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080311"><title>Anh ♥ Em — Chúc mừng ngày Phụ nữ Việt Nam 20/10</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="integrated.css">
+<script>
+  if (new URLSearchParams(location.search).get('mode') === 'intro') {
+    document.documentElement.classList.add('intro-mode');
+  }
+</script>
+<style>
+  html.intro-mode #opening {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  html.intro-mode #card {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+  html.intro-mode .controls,
+  html.intro-mode #progress,
+  html.intro-mode .card-next {
+    display: none !important;
+  }
+</style>
+</head><body>
+<canvas id="space" aria-hidden="true"></canvas><div id="flare"></div><audio id="music" preload="auto" loop></audio>
+<main id="stage" aria-label="Món quà 20 tháng 10">
+<section id="opening" class="scene active" aria-label="Nhấn giữ trái tim để mở quà">
+  <div class="heart-invitation"><p class="eyebrow">MỘT ĐIỀU NHỎ DÀNH CHO EM</p>
+  <button id="begin" type="button" aria-label="Nhấn giữ trái tim để mở quà" aria-describedby="holdHint"><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/flower-heart-still.jpg"><img id="openingFlowerHeart" src="assets/flower-heart.gif" alt="Trái tim kết từ hoa hồng và mẫu đơn" draggable="false"></picture></button>
+  <h1>Gửi em, bằng cả trái tim</h1><p id="holdHint" role="status">Nhấn giữ trái tim để mở quà ♥</p></div>
+</section>
+<section id="flowers" class="scene" aria-label="Những đóa hoa dành cho em"><button id="flowerHeart" type="button" aria-label="Chạm vào hoa để xem ảnh kỷ niệm"><span id="bouquetStage" class="bouquet-stage" aria-hidden="true"></span><span class="flower-caption">Chạm vào bó hoa để hé lộ những kỷ niệm ♥</span></button></section>
+<section id="card" class="scene" aria-label="Thiệp chúc mừng"><div class="gold-card"><h1><span class="sender">Anh</span><span>♥</span><b class="recipient">Em</b></h1><div class="card-content"><div id="puzzleHeart" aria-label="Trái tim ghép ảnh"></div><div class="calendar-side"><h2 id="cardTitle">Chúc mừng<br>ngày 20/10</h2><div class="month">Tháng 10 · 2026</div><div id="calendar" aria-label="Lịch tháng 10 năm 2026"></div></div></div><div class="flower-border" aria-hidden="true"></div><button class="card-next" data-go="spiral" aria-label="Tiếp đến không gian ảnh">♡</button></div></section>
+<section id="spiral" class="scene" aria-label="Không gian lời chúc"><div id="spiralItems" tabindex="0" role="region" aria-label="Kéo hoặc dùng phím mũi tên để xoay vũ trụ ảnh"></div><p class="universe-hint">Kéo để khám phá những góc yêu thương</p><button class="next tiny" data-go="sphere">Tiếp nào</button></section>
+<section id="sphere" class="scene" aria-label="Quả cầu ảnh kỷ niệm"><div id="sphereItems"></div><div id="globeView" aria-label="Địa cầu ghép từ ảnh kỷ niệm"></div><button class="next tiny" data-go="burst">Tiếp nào</button></section>
+<section id="burst" class="scene" aria-label="Ảnh bay trong không gian"><div id="burstItems"></div></section>
+<section id="gallery" class="scene" aria-label="Bức tường kỷ niệm"><div id="galleryItems"></div></section>
+<section id="envelopeScene" class="scene" aria-label="Phong thư gửi em"><div id="lastPhotos"></div><button id="envelope" aria-label="Mở thư gửi em"><span class="paper-inside">Gửi em !</span><span class="env-top"></span><span class="env-front"></span><span class="env-seal">♥</span></button><p class="open-hint">Chạm vào phong thư ♥</p></section>
+<section id="letter" class="scene" aria-label="Lá thư"><div class="letter-stack"><article class="letter-paper"><span class="corner tl">♥</span><span class="corner tr">❀</span><span class="corner bl">❀</span><span class="corner br">♥</span><h2>Gửi <span class="recipient">em</span> !</h2><p id="typedLetter"></p><span class="signature">Thương em ♥</span></article></div><button id="replay" class="next">Xem lại ↻</button></section>
+</main>
+<div class="controls"><button id="pause" aria-label="Tạm dừng">Ⅱ</button><button id="mute" aria-label="Bật nhạc">♫</button><button id="fullscreen" aria-label="Toàn màn hình">⛶</button></div><div id="progress"><i></i></div>
+<script src="../config.js"></script><script src="universe-controls.js"></script><script src="bouquet-layout.js"></script><script src="visuals.js"></script><script type="module" src="globe.js"></script><script src="app.js"></script></body></html>

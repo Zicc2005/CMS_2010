@@ -1,0 +1,10 @@
+exports/
+*.zip
+.vercel/
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+scratch/
+tests/artifacts/

@@ -1,0 +1,8 @@
+Reference photos and music: user-provided sample video.
+
+calendar-melody.wav: original short instrumental composed and synthesized for this project; no sampled recording.
+
+letter/*.webp: envelope, paper textures and floral artwork from https://i.dlove.vn/assets/letter-20-10/, referenced by the user-provided iungocquynh_2/eomeo source. Wax heart seal and envelope animation implemented locally. Artwork remains attributed to its original creator.
+bouquet-intro/*.webp: floral layers reused from the user-provided iungocquynh_2/eomeo assets; also used for the full-screen bloom after closing the letter.
+
+greeting-20-10.mp3: Vietnamese greeting generated with AI Voice Generator / AI Doc Maker (Delicate voice), mixed with the original calendar-melody.wav instrumental. Script: greeting-20-10.txt. Generation: https://www.aidocmaker.com/g0/audio?name=8e9b14ec11124d84b593f1938ab7455c

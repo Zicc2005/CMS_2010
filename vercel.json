@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "framework": null,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/content/site.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
+    }
+  ]
+}
