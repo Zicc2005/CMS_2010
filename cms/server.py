@@ -57,7 +57,7 @@ def export_site(name,data,overwrite=False):
         (staging/'DEPLOY.md').write_text((ROOT/'docs/DEPLOY.md').read_text(encoding='utf-8'),encoding='utf-8')
         (staging/'.gitignore').write_text('.vercel/\n.DS_Store\nThumbs.db\n',encoding='utf-8')
         # No build step: Vercel serves only this standalone folder.
-        (staging/'vercel.json').write_text(json.dumps({'version':2,'framework':None,'buildCommand':None,'outputDirectory':'.'},indent=2),encoding='utf-8')
+        (staging/'vercel.json').write_text(json.dumps({'version':2,'framework':None,'buildCommand':None,'outputDirectory':'.','cleanUrls':True,'headers':[{'source':'/content/site.json','headers':[{'key':'Cache-Control','value':'no-store, no-cache, must-revalidate'}]}]},indent=2),encoding='utf-8')
         with ZipFile(archive,'w',ZIP_DEFLATED) as z:
             for file in staging.rglob('*'):
                 if file.is_file():z.write(file,Path(name)/file.relative_to(staging))
