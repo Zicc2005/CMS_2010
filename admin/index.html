@@ -2,8 +2,8 @@
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gift Studio — Quản lý món quà</title><link rel="stylesheet" href="style.css"></head>
 <body>
 <aside class="sidebar"><a class="brand" href="/admin/"><span>✿</span> Gift Studio</a><p class="workspace">KHÔNG GIAN SÁNG TẠO</p><nav><a href="#lock">01 · Màn hình mở quà</a><a href="#content">02 · Lời gửi thương</a><a href="#photos">03 · Các bộ ảnh</a><a href="#music">04 · Âm nhạc & nền</a><a href="#publish">05 · Xuất website</a></nav><div class="sidebar-note">Một món quà riêng.<br>Một địa chỉ riêng.<small>CMS trên máy của bạn</small></div></aside>
-<main><header><div><span class="eyebrow">MÓN QUÀ NGÀY 20 THÁNG 10</span><h1>Điều chỉnh từng chút yêu thương.</h1><p>Thêm ảnh, chọn nhạc và viết những lời dành riêng cho người ấy.</p></div><a class="preview-link" href="/" target="_blank" rel="noopener">Xem website ↗</a></header>
-<div class="savebar"><span id="save-state">Đang tải nội dung…</span><button type="button" id="save" class="primary" disabled>Lưu thay đổi</button></div>
+<main><header><div><span class="eyebrow">MÓN QUÀ NGÀY 20 THÁNG 10</span><h1>Điều chỉnh từng chút yêu thương.</h1><p>Thêm ảnh, chọn nhạc và viết những lời dành riêng cho người ấy.</p></div><a class="preview-link" href="/public/index.html" target="_blank" rel="noopener">Xem website ↗</a></header>
+<div class="savebar"><span id="save-state">Đang tải nội dung…</span><button type="button" id="reset-default" style="background:#fff;border:1px solid #ddd;color:#666;border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13px;margin-right:8px;">Khôi phục mẫu gốc</button><button type="button" id="save" class="primary" disabled>Lưu thay đổi</button></div>
 <p id="status" role="status" aria-live="polite"></p>
 <form id="cms-form">
 <section id="lock" class="panel"><div class="section-heading"><span>01</span><div><h2>Màn hình mở quà</h2><p>Đặt ảnh riêng, mật khẩu và gợi ý cho màn hình nhập mã.</p></div></div><div class="fields"><label>Mật khẩu mở quà<input name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required><small>Đúng 4 chữ số.</small></label><label>Gợi ý mật khẩu<input name="hint" maxlength="160" required></label></div><div id="lock-image-slot" class="image-slot"></div></section>
@@ -39,4 +39,4 @@
     </div>
   </div>
 </div>
-</form><footer>Gift Studio · Tạo trên máy, chia sẻ theo cách của bạn.</footer></main><script src="app.js"></script></body></html>
+</form><footer>Gift Studio · Tạo trên máy, chia sẻ theo cách của bạn.</footer></main><script src="jszip.min.js"></script><script src="template-manifest.js"></script><script src="app.js"></script></body></html>

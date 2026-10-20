@@ -1,71 +1,212 @@
-const $=selector=>document.querySelector(selector);
-let content,revision,dirty=false,busy=false;
-const textFields=['title','sender','recipient','pin','hint','cardTitle','signature','letter','giftLetter','flyingText','holdHint','envelopeSub','envelopeTitle','envelopeDesc','galleryMode','galleryInterval','galleryEffect'];
-function notice(message,error=false){$('#status').textContent=message;$('#status').classList.toggle('error',error);}
-function changed(){dirty=true;$('#save-state').textContent='Có thay đổi chưa lưu';}
-async function api(url,options={}){
-  const response=await fetch(url,{...options,headers:{'X-CMS-Request':'1',...options.headers}});
-  const result=await response.json();if(!response.ok)throw new Error(result.error||'Không thể thực hiện yêu cầu.');return result;
-}
-async function run(task){
-  if(busy)return;busy=true;document.body.classList.add('loading');
-  const fields=[...document.querySelectorAll('button,input,textarea,select')];fields.forEach(e=>e.disabled=true);
-  try{await task();}catch(error){notice(error.message,true);}
-  finally{busy=false;document.body.classList.remove('loading');fields.forEach(e=>{if(e.isConnected)e.disabled=false;});$('#save').disabled=!content;}
-}
-function element(tag,props={},text){const node=document.createElement(tag);Object.assign(node,props);if(text!==undefined)node.textContent=text;return node;}
-function assetUrl(path){return '/'+path;}
-function audio(path){return element('audio',{src:assetUrl(path),controls:true,preload:'metadata'});}
-function uploadControl(label,accept,handler){const wrapper=element('label',{className:'upload'},label);const input=element('input',{type:'file',accept});input.addEventListener('change',()=>{const file=input.files[0];if(file)run(()=>handler(file));});wrapper.append(input);return wrapper;}
-async function upload(file){
-  notice('Đang tải '+file.name+'…');
-  return (await api('/api/upload?name='+encodeURIComponent(file.name),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file})).path;
-}
-const imageAccept='image/jpeg,image/png,image/webp,image/gif';
-function renderImageSlot(key,selector,title){
-  const slot=$(selector),settings=element('div');
-  settings.append(element('strong',{},title),element('p',{},'Chọn ảnh có sẵn hoặc tải ảnh riêng. Không thay đổi ảnh ở các phần khác.'));
-  const select=element('select');select.setAttribute('aria-label',title);
-  const choices=[...new Set([content[key],...content.photos,...content.bouquetPhotos])];
-  choices.forEach(path=>{
-    const index=content.photos.indexOf(path);
-    select.append(element('option',{value:path},index>=0?'Ảnh kỷ niệm '+(index+1):path===content[key]?'Ảnh riêng đang chọn':'Ảnh bó hoa '+(content.bouquetPhotos.indexOf(path)+1)));
+const $ = selector => document.querySelector(selector);
+let content, revision, dirty = false, busy = false;
+let lastExportBlob = null;
+const textFields = ['title', 'sender', 'recipient', 'pin', 'hint', 'cardTitle', 'signature', 'letter', 'giftLetter', 'flyingText', 'holdHint', 'envelopeSub', 'envelopeTitle', 'envelopeDesc', 'galleryMode', 'galleryInterval', 'galleryEffect'];
+
+const customBlobs = new Map();
+const objectUrls = new Map();
+
+// IndexedDB persistence for user-uploaded blobs
+const DB_NAME = 'GiftCMSDB', STORE_NAME = 'blobs';
+function getDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
-  select.value=content[key];select.onchange=()=>{content[key]=select.value;changed();renderImageSlots();};
-  settings.append(select,uploadControl('Tải ảnh riêng',imageAccept,async file=>{
-    content[key]=await upload(file);changed();renderImageSlots();notice('Đã chọn '+title.toLowerCase()+'. Bấm Lưu để áp dụng.');
+}
+async function saveBlobToIndexedDB(key, blob) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(blob, key);
+  } catch (e) {
+    console.warn('IndexedDB save failed:', e);
+  }
+}
+async function loadAllBlobsFromIndexedDB() {
+  try {
+    const db = await getDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.openCursor();
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          customBlobs.set(cursor.key, cursor.value);
+          objectUrls.set(cursor.key, URL.createObjectURL(cursor.value));
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      req.onerror = () => resolve();
+    });
+  } catch (e) {
+    console.warn('IndexedDB load failed:', e);
+  }
+}
+
+function notice(message, error = false) {
+  $('#status').textContent = message;
+  $('#status').classList.toggle('error', error);
+}
+function changed() {
+  dirty = true;
+  $('#save-state').textContent = 'Có thay đổi chưa lưu';
+}
+
+async function run(task) {
+  if (busy) return;
+  busy = true;
+  document.body.classList.add('loading');
+  const fields = [...document.querySelectorAll('button,input,textarea,select')];
+  fields.forEach(e => e.disabled = true);
+  try {
+    await task();
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    busy = false;
+    document.body.classList.remove('loading');
+    fields.forEach(e => { if (e.isConnected) e.disabled = false; });
+    $('#save').disabled = !content;
+  }
+}
+
+function element(tag, props = {}, text) {
+  const node = document.createElement(tag);
+  Object.assign(node, props);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function assetUrl(path) {
+  if (!path) return '';
+  if (objectUrls.has(path)) return objectUrls.get(path);
+  if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) return path;
+  path = path.replace(/^\/+/, '');
+  if (path.startsWith('public/')) return '/' + path;
+  return '/public/' + path;
+}
+
+function audio(path) {
+  return element('audio', { src: assetUrl(path), controls: true, preload: 'metadata' });
+}
+
+function uploadControl(label, accept, handler) {
+  const wrapper = element('label', { className: 'upload' }, label);
+  const input = element('input', { type: 'file', accept });
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (file) run(() => handler(file));
+  });
+  wrapper.append(input);
+  return wrapper;
+}
+
+async function upload(file) {
+  notice('Đang xử lý ' + file.name + '…');
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')).toLowerCase() : '.bin';
+  const path = 'uploads/' + hash + ext;
+
+  customBlobs.set(path, file);
+  const blobUrl = URL.createObjectURL(file);
+  objectUrls.set(path, blobUrl);
+
+  await saveBlobToIndexedDB(path, file);
+  return path;
+}
+
+const imageAccept = 'image/jpeg,image/png,image/webp,image/gif';
+
+function renderImageSlot(key, selector, title) {
+  const slot = $(selector), settings = element('div');
+  settings.append(element('strong', {}, title), element('p', {}, 'Chọn ảnh có sẵn hoặc tải ảnh riêng. Không thay đổi ảnh ở các phần khác.'));
+  const select = element('select');
+  select.setAttribute('aria-label', title);
+  const choices = [...new Set([content[key], ...content.photos, ...content.bouquetPhotos].filter(Boolean))];
+  choices.forEach(path => {
+    const index = content.photos.indexOf(path);
+    select.append(element('option', { value: path }, index >= 0 ? 'Ảnh kỷ niệm ' + (index + 1) : path === content[key] ? 'Ảnh riêng đang chọn' : 'Ảnh bó hoa ' + (content.bouquetPhotos.indexOf(path) + 1)));
+  });
+  select.value = content[key];
+  select.onchange = () => {
+    content[key] = select.value;
+    changed();
+    renderImageSlots();
+  };
+  settings.append(select, uploadControl('Tải ảnh riêng', imageAccept, async file => {
+    content[key] = await upload(file);
+    changed();
+    renderImageSlots();
+    notice('Đã chọn ' + title.toLowerCase() + '. Bấm Lưu để áp dụng.');
   }));
-  slot.replaceChildren(element('img',{src:assetUrl(content[key]),alt:title}),settings);
+  slot.replaceChildren(element('img', { src: assetUrl(content[key]), alt: title }), settings);
 }
-function renderImageSlots(){
-  renderImageSlot('lockImage','#lock-image-slot','Ảnh màn hình mở quà');
-  renderImageSlot('letterImage','#letter-image-slot','Ảnh trong lá thư');
+
+function renderImageSlots() {
+  renderImageSlot('lockImage', '#lock-image-slot', 'Ảnh màn hình mở quà');
+  renderImageSlot('letterImage', '#letter-image-slot', 'Ảnh trong lá thư');
 }
-function renderCollection(key,selector){
-  const photos=content[key],grid=$(selector);grid.replaceChildren();
-  photos.forEach((path,index)=>{
-    const card=element('div',{className:'photo-card'});card.append(element('img',{src:assetUrl(path),alt:'Ảnh '+(index+1)}));
-    const actions=element('div',{className:'photo-actions'});
-    const left=element('button',{type:'button',title:'Đưa lên trước'},'←');left.setAttribute('aria-label','Đưa ảnh '+(index+1)+' lên trước');left.onclick=()=>{if(index){[photos[index-1],photos[index]]=[path,photos[index-1]];changed();renderPhotos();}};
-    const right=element('button',{type:'button',title:'Đưa ra sau'},'→');right.setAttribute('aria-label','Đưa ảnh '+(index+1)+' ra sau');right.onclick=()=>{if(index<photos.length-1){[photos[index+1],photos[index]]=[path,photos[index+1]];changed();renderPhotos();}};
-    const remove=element('button',{type:'button',title:'Bỏ khỏi bộ ảnh này'},'×');remove.setAttribute('aria-label','Bỏ ảnh '+(index+1));remove.onclick=()=>{
-      if(key==='photos' && photos.length===1)return notice('Mục Kỷ niệm cần ít nhất một ảnh.',true);
-      photos.splice(index,1);
-      if(key==='photos')content.music.playlist.forEach(song=>{if(song.cover===path)song.cover=photos[0];});
-      changed();renderPhotos();
+
+function renderCollection(key, selector) {
+  const photos = content[key], grid = $(selector);
+  grid.replaceChildren();
+  photos.forEach((path, index) => {
+    const card = element('div', { className: 'photo-card' });
+    card.append(element('img', { src: assetUrl(path), alt: 'Ảnh ' + (index + 1) }));
+    const actions = element('div', { className: 'photo-actions' });
+    const left = element('button', { type: 'button', title: 'Đưa lên trước' }, '←');
+    left.setAttribute('aria-label', 'Đưa ảnh ' + (index + 1) + ' lên trước');
+    left.onclick = () => {
+      if (index) {
+        [photos[index - 1], photos[index]] = [path, photos[index - 1]];
+        changed();
+        renderPhotos();
+      }
     };
-    actions.append(left,right,remove);card.append(actions);grid.append(card);
+    const right = element('button', { type: 'button', title: 'Đưa ra sau' }, '→');
+    right.setAttribute('aria-label', 'Đưa ảnh ' + (index + 1) + ' ra sau');
+    right.onclick = () => {
+      if (index < photos.length - 1) {
+        [photos[index + 1], photos[index]] = [path, photos[index + 1]];
+        changed();
+        renderPhotos();
+      }
+    };
+    const remove = element('button', { type: 'button', title: 'Bỏ khỏi bộ ảnh này' }, '×');
+    remove.setAttribute('aria-label', 'Bỏ ảnh ' + (index + 1));
+    remove.onclick = () => {
+      if (key === 'photos' && photos.length === 1) return notice('Mục Kỷ niệm cần ít nhất một ảnh.', true);
+      photos.splice(index, 1);
+      if (key === 'photos') content.music.playlist.forEach(song => { if (song.cover === path) song.cover = photos[0]; });
+      changed();
+      renderPhotos();
+    };
+    actions.append(left, right, remove);
+    card.append(actions);
+    grid.append(card);
   });
 }
-function renderPhotos(){
-  $('#photo-count').textContent=`${content.photos.length} / 24`;
-  $('#bouquet-count').textContent=`${content.bouquetPhotos.length} ảnh`;
-  const missing=Math.max(0,6-content.bouquetPhotos.length),warning=$('#bouquet-warning');
-  warning.textContent=missing?`Cần thêm ${missing} ảnh khác nhau cho bó hoa. Có thể lưu nháp; xuất website cần đủ 6 ảnh.`:'Đã đủ ảnh cho bó hoa. Sáu ảnh đầu tiên sẽ xuất hiện trên bó hoa.';
-  warning.classList.toggle('ready',missing===0);
-  renderCollection('photos','#photo-grid');renderCollection('bouquetPhotos','#bouquet-grid');renderImageSlots();
+
+function renderPhotos() {
+  $('#photo-count').textContent = `${content.photos.length} / 24`;
+  $('#bouquet-count').textContent = `${content.bouquetPhotos.length} ảnh`;
+  const missing = Math.max(0, 6 - content.bouquetPhotos.length), warning = $('#bouquet-warning');
+  warning.textContent = missing ? `Cần thêm ${missing} ảnh khác nhau cho bó hoa. Có thể lưu nháp; xuất website cần đủ 6 ảnh.` : 'Đã đủ ảnh cho bó hoa. Sáu ảnh đầu tiên sẽ xuất hiện trên bó hoa.';
+  warning.classList.toggle('ready', missing === 0);
+  renderCollection('photos', '#photo-grid');
+  renderCollection('bouquetPhotos', '#bouquet-grid');
+  renderImageSlots();
 }
-function renderMusic(){
+
+function renderMusic() {
   if (!content.music) content.music = {};
   if (content.music.letter === undefined) content.music.letter = '';
   const slots = $('#audio-slots');
@@ -107,7 +248,7 @@ function renderMusic(){
     }
   ];
 
-  for(const slot of slotDefs){
+  for (const slot of slotDefs) {
     const card = element('div', { className: 'audio-card' });
     const top = element('div', { className: 'audio-card-top' });
     top.append(
@@ -166,76 +307,83 @@ function renderMusic(){
     slots.append(card);
   }
 
-  const list=$('#playlist');list.replaceChildren();
-  content.music.playlist.forEach((song,index)=>{
-    const row=element('div',{className:'song-row'});
+  const list = $('#playlist');
+  list.replaceChildren();
+  content.music.playlist.forEach((song, index) => {
+    const row = element('div', { className: 'song-row' });
 
     // 1. Cover box: thumbnail + dropdown + upload
-    const coverBox=element('div',{className:'song-cover-box'});
-    const thumb=element('img',{src:assetUrl(song.cover || content.photos[0]),alt:'Bìa bài '+(index+1),className:'song-thumb'});
-    const select=element('select',{className:'song-cover-select'});
-    select.setAttribute('aria-label','Chọn ảnh bìa bài '+(index+1));
+    const coverBox = element('div', { className: 'song-cover-box' });
+    const thumb = element('img', { src: assetUrl(song.cover || content.photos[0]), alt: 'Bìa bài ' + (index + 1), className: 'song-thumb' });
+    const select = element('select', { className: 'song-cover-select' });
+    select.setAttribute('aria-label', 'Chọn ảnh bìa bài ' + (index + 1));
 
-    const choices=[...new Set([...content.photos, ...content.bouquetPhotos, song.cover].filter(Boolean))];
-    choices.forEach(path=>{
-      const pIdx=content.photos.indexOf(path);
-      const bIdx=content.bouquetPhotos.indexOf(path);
-      const label=pIdx>=0 ? `Ảnh kỷ niệm ${pIdx+1}` : bIdx>=0 ? `Ảnh bó hoa ${bIdx+1}` : 'Ảnh riêng';
-      select.append(element('option',{value:path},label));
+    const choices = [...new Set([...content.photos, ...content.bouquetPhotos, song.cover].filter(Boolean))];
+    choices.forEach(path => {
+      const pIdx = content.photos.indexOf(path);
+      const bIdx = content.bouquetPhotos.indexOf(path);
+      const label = pIdx >= 0 ? `Ảnh kỷ niệm ${pIdx + 1}` : bIdx >= 0 ? `Ảnh bó hoa ${bIdx + 1}` : 'Ảnh riêng';
+      select.append(element('option', { value: path }, label));
     });
-    select.value=song.cover || content.photos[0];
-    select.onchange=()=>{
-      song.cover=select.value;
-      thumb.src=assetUrl(song.cover);
+    select.value = song.cover || content.photos[0];
+    select.onchange = () => {
+      song.cover = select.value;
+      thumb.src = assetUrl(song.cover);
       changed();
     };
 
-    const upControl=uploadControl('Đổi ảnh',imageAccept,async file=>{
-      const newPath=await upload(file);
-      song.cover=newPath;
-      thumb.src=assetUrl(song.cover);
+    const upControl = uploadControl('Đổi ảnh', imageAccept, async file => {
+      const newPath = await upload(file);
+      song.cover = newPath;
+      thumb.src = assetUrl(song.cover);
       changed();
       renderMusic();
-      notice('Đã đổi ảnh bìa bài "'+song.title+'". Bấm Lưu để áp dụng.');
+      notice('Đã đổi ảnh bìa bài "' + song.title + '". Bấm Lưu để áp dụng.');
     });
-    upControl.className='upload song-cover-upload';
+    upControl.className = 'upload song-cover-upload';
 
-    coverBox.append(thumb,select,upControl);
+    coverBox.append(thumb, select, upControl);
 
     // 2. Fields box: Title + Artist/Dedication
-    const fieldsBox=element('div',{className:'song-fields-box'});
-    const title=element('input',{value:song.title,maxLength:100,required:true,placeholder:'Tên bài hát (VD: Chúc)',className:'song-title-input'});
-    title.setAttribute('aria-label','Tên bài nhạc '+(index+1));
-    title.oninput=()=>{song.title=title.value;changed();};
+    const fieldsBox = element('div', { className: 'song-fields-box' });
+    const title = element('input', { value: song.title, maxLength: 100, required: true, placeholder: 'Tên bài hát (VD: Chúc)', className: 'song-title-input' });
+    title.setAttribute('aria-label', 'Tên bài nhạc ' + (index + 1));
+    title.oninput = () => {
+      song.title = title.value;
+      changed();
+    };
 
-    const artist=element('input',{value:song.artist!==undefined?song.artist:'Dành tặng em',maxLength:100,placeholder:'Lời đề từ (VD: Dành tặng em)',className:'song-artist-input'});
-    artist.setAttribute('aria-label','Lời đề từ bài '+(index+1));
-    artist.oninput=()=>{song.artist=artist.value;changed();};
-    fieldsBox.append(title,artist);
+    const artist = element('input', { value: song.artist !== undefined ? song.artist : 'Dành tặng em', maxLength: 100, placeholder: 'Lời đề từ (VD: Dành tặng em)', className: 'song-artist-input' });
+    artist.setAttribute('aria-label', 'Lời đề từ bài ' + (index + 1));
+    artist.oninput = () => {
+      song.artist = artist.value;
+      changed();
+    };
+    fieldsBox.append(title, artist);
 
     // 3. Audio player
-    const audioEl=audio(song.src);
+    const audioEl = audio(song.src);
 
     // 4. Remove button
-    const remove=element('button',{type:'button',className:'song-remove-btn'},'Bỏ');
-    remove.setAttribute('aria-label','Bỏ bài nhạc '+(index+1));
-    remove.onclick=()=>{
-      if(content.music.playlist.length===1)return notice('Danh sách cần ít nhất một bài nhạc.',true);
-      content.music.playlist.splice(index,1);
+    const remove = element('button', { type: 'button', className: 'song-remove-btn' }, 'Bỏ');
+    remove.setAttribute('aria-label', 'Bỏ bài nhạc ' + (index + 1));
+    remove.onclick = () => {
+      if (content.music.playlist.length === 1) return notice('Danh sách cần ít nhất một bài nhạc.', true);
+      content.music.playlist.splice(index, 1);
       changed();
       renderMusic();
     };
 
-    row.append(coverBox,fieldsBox,audioEl,remove);
+    row.append(coverBox, fieldsBox, audioEl, remove);
     list.append(row);
   });
 
-  const distBtn=$('#distribute-covers-btn');
-  if(distBtn){
-    distBtn.onclick=()=>{
-      if(!content.music.playlist.length || !content.photos.length) return;
-      content.music.playlist.forEach((song,idx)=>{
-        song.cover=content.photos[idx % content.photos.length];
+  const distBtn = $('#distribute-covers-btn');
+  if (distBtn) {
+    distBtn.onclick = () => {
+      if (!content.music.playlist.length || !content.photos.length) return;
+      content.music.playlist.forEach((song, idx) => {
+        song.cover = content.photos[idx % content.photos.length];
       });
       changed();
       renderMusic();
@@ -243,57 +391,254 @@ function renderMusic(){
     };
   }
 }
-function renderBackground(){const media=element(content.background.type==='video'?'video':'img',{src:assetUrl(content.background.src)});if(media.tagName==='VIDEO'){media.muted=true;media.controls=true;media.preload='metadata';}else media.alt='Nền website';$('#background-preview').replaceChildren(media);}
-function fill(){
-  textFields.forEach(key=>{
-    const el=$(`[name="${key}"]`);
-    if(el) el.value=content[key]!==undefined?content[key]:(key==='galleryInterval'?4:key==='galleryMode'?'rails':key==='galleryEffect'?'fade':'');
-  });
-  $('[name="wishes"]').value=content.wishes.join('\n');
-  renderPhotos();renderMusic();renderBackground();
+
+function renderBackground() {
+  const media = element(content.background.type === 'video' ? 'video' : 'img', { src: assetUrl(content.background.src) });
+  if (media.tagName === 'VIDEO') {
+    media.muted = true;
+    media.controls = true;
+    media.preload = 'metadata';
+  } else media.alt = 'Nền website';
+  $('#background-preview').replaceChildren(media);
 }
-function gather(){
-  textFields.forEach(key=>{
-    const el=$(`[name="${key}"]`);
-    if(el){
-      if(key==='galleryInterval')content[key]=parseInt(el.value,10)||4;
-      else content[key]=el.value.trim();
+
+function fill() {
+  textFields.forEach(key => {
+    const el = $(`[name="${key}"]`);
+    if (el) el.value = content[key] !== undefined ? content[key] : (key === 'galleryInterval' ? 4 : key === 'galleryMode' ? 'rails' : key === 'galleryEffect' ? 'fade' : '');
+  });
+  $('[name="wishes"]').value = (content.wishes || []).join('\n');
+  renderPhotos();
+  renderMusic();
+  renderBackground();
+}
+
+function gather() {
+  textFields.forEach(key => {
+    const el = $(`[name="${key}"]`);
+    if (el) {
+      if (key === 'galleryInterval') content[key] = parseInt(el.value, 10) || 4;
+      else content[key] = el.value.trim();
     }
   });
-  content.wishes=$('[name="wishes"]').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  content.wishes = $('[name="wishes"]').value.split('\n').map(s => s.trim()).filter(Boolean);
 }
-async function save(){
-  gather();const result=await api('/api/content',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,revision})});
-  content=result.content;revision=result.revision;renderPhotos();dirty=false;$('#save-state').textContent='Đã lưu · '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});notice('Đã lưu. Trang xem trước sẽ dùng nội dung mới khi tải lại.');
+
+async function save() {
+  gather();
+  localStorage.setItem('gift_cms_content', JSON.stringify(content));
+  revision = 'local-' + Date.now();
+  renderPhotos();
+  dirty = false;
+  $('#save-state').textContent = 'Đã lưu · ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  notice('✅ Đã lưu thay đổi vào trình duyệt!');
 }
-$('#cms-form').addEventListener('submit',event=>event.preventDefault());
-textFields.concat('wishes').forEach(key=>{
-  const el=$(`[name="${key}"]`);
-  if(el){el.addEventListener('input',changed);el.addEventListener('change',changed);}
+
+$('#cms-form').addEventListener('submit', event => event.preventDefault());
+textFields.concat('wishes').forEach(key => {
+  const el = $(`[name="${key}"]`);
+  if (el) {
+    el.addEventListener('input', changed);
+    el.addEventListener('change', changed);
+  }
 });
-$('#save').onclick=()=>{if($('#cms-form').reportValidity())run(save);};
-function bindPhotoUpload(selector,key){
-  $(selector).onchange=event=>{
-    const files=[...event.target.files];event.target.value='';if(!files.length)return;
-    run(async()=>{
-      if(content[key].length+files.length>24)throw new Error('Mỗi bộ có tối đa 24 ảnh.');
-      let duplicates=0;
-      try{for(const file of files){const path=await upload(file);if(content[key].includes(path)){duplicates++;continue;}content[key].push(path);changed();}}
-      finally{renderPhotos();}
-      notice(duplicates?`Đã bỏ qua ${duplicates} ảnh trùng. Bấm Lưu để lưu bộ ảnh.`:'Đã thêm ảnh. Có thể đổi thứ tự bằng các nút mũi tên.');
+$('#save').onclick = () => {
+  if ($('#cms-form').reportValidity()) run(save);
+};
+
+const resetBtn = $('#reset-default');
+if (resetBtn) {
+  resetBtn.onclick = () => {
+    if (confirm('Bạn có chắc muốn khôi phục toàn bộ nội dung về mẫu gốc ban đầu không?')) {
+      localStorage.removeItem('gift_cms_content');
+      location.reload();
+    }
+  };
+}
+
+function bindPhotoUpload(selector, key) {
+  $(selector).onchange = event => {
+    const files = [...event.target.files];
+    event.target.value = '';
+    if (!files.length) return;
+    run(async () => {
+      if (content[key].length + files.length > 24) throw new Error('Mỗi bộ có tối đa 24 ảnh.');
+      let duplicates = 0;
+      try {
+        for (const file of files) {
+          const path = await upload(file);
+          if (content[key].includes(path)) {
+            duplicates++;
+            continue;
+          }
+          content[key].push(path);
+          changed();
+        }
+      } finally {
+        renderPhotos();
+      }
+      notice(duplicates ? `Đã bỏ qua ${duplicates} ảnh trùng. Bấm Lưu để lưu bộ ảnh.` : 'Đã thêm ảnh. Có thể đổi thứ tự bằng các nút mũi tên.');
     });
   };
 }
-bindPhotoUpload('#photo-files','photos');bindPhotoUpload('#bouquet-files','bouquetPhotos');
-$('#copy-bouquet').onclick=()=>{content.bouquetPhotos=[...content.photos];changed();renderPhotos();notice('Đã sao chép bộ ảnh kỷ niệm sang bó hoa. Từ đây hai bộ ảnh được chỉnh riêng.');};
-$('#song-files').onchange=event=>{const files=[...event.target.files];event.target.value='';if(!files.length)return;run(async()=>{if(content.music.playlist.length+files.length>12)throw new Error('Danh sách tối đa 12 bài.');try{for(const file of files){const src=await upload(file);const chosenCover=content.photos[content.music.playlist.length % content.photos.length]||content.photos[0];content.music.playlist.push({title:file.name.replace(/\.[^.]+$/,'').slice(0,100),artist:'Dành tặng em',src,cover:chosenCover});changed();}}finally{renderMusic();}notice('Đã thêm bài nhạc. Bấm Lưu để áp dụng.');});};
-$('#background-file').onchange=event=>{const file=event.target.files[0];event.target.value='';if(!file)return;run(async()=>{content.background={src:await upload(file),type:/\.(mp4|webm)$/i.test(file.name)?'video':'image'};changed();renderBackground();notice('Đã chọn nền mới. Bấm Lưu để áp dụng.');});};
-async function downloadZipFile(url, suggestedFilename) {
-  notice('Đang chuẩn bị file ZIP để tải về máy…');
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Không thể tải file ZIP từ máy chủ');
-  const blob = await response.blob();
+bindPhotoUpload('#photo-files', 'photos');
+bindPhotoUpload('#bouquet-files', 'bouquetPhotos');
 
+$('#copy-bouquet').onclick = () => {
+  content.bouquetPhotos = [...content.photos];
+  changed();
+  renderPhotos();
+  notice('Đã sao chép bộ ảnh kỷ niệm sang bó hoa. Từ đây hai bộ ảnh được chỉnh riêng.');
+};
+
+$('#song-files').onchange = event => {
+  const files = [...event.target.files];
+  event.target.value = '';
+  if (!files.length) return;
+  run(async () => {
+    if (content.music.playlist.length + files.length > 12) throw new Error('Danh sách tối đa 12 bài.');
+    try {
+      for (const file of files) {
+        const src = await upload(file);
+        const chosenCover = content.photos[content.music.playlist.length % content.photos.length] || content.photos[0];
+        content.music.playlist.push({
+          title: file.name.replace(/\.[^.]+$/, '').slice(0, 100),
+          artist: 'Dành tặng em',
+          src,
+          cover: chosenCover
+        });
+        changed();
+      }
+    } finally {
+      renderMusic();
+    }
+    notice('Đã thêm bài nhạc. Bấm Lưu để áp dụng.');
+  });
+};
+
+$('#background-file').onchange = event => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  run(async () => {
+    content.background = {
+      src: await upload(file),
+      type: /\.(mp4|webm)$/i.test(file.name) ? 'video' : 'image'
+    };
+    changed();
+    renderBackground();
+    notice('Đã chọn nền mới. Bấm Lưu để áp dụng.');
+  });
+};
+
+function contentAssets(site) {
+  const assets = new Set();
+  const add = (p) => {
+    if (p && typeof p === 'string' && !p.startsWith('http://') && !p.startsWith('https://') && !p.startsWith('data:') && !p.startsWith('blob:')) {
+      assets.add(p.replace(/^\/+/, ''));
+    }
+  };
+  (site.photos || []).forEach(add);
+  add(site.lockImage);
+  add(site.letterImage);
+  (site.bouquetPhotos || []).forEach(add);
+  if (site.background && site.background.src) add(site.background.src);
+  if (site.music) {
+    add(site.music.intro);
+    add(site.music.gift);
+    add(site.music.gallery);
+    add(site.music.letter);
+    (site.music.playlist || []).forEach(song => {
+      add(song.src);
+      add(song.cover);
+    });
+  }
+  return assets;
+}
+
+// Client-Side ZIP Packaging (100% Zero-Backend, Pure Browser JSZip)
+async function exportZipClientSide(folderName) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('Thư viện tạo file ZIP (JSZip) chưa tải xong. Hãy tải lại trang và thử lại.');
+  }
+
+  notice('Đang gom tệp giao diện và tài nguyên...');
+  const zip = new JSZip();
+  const rootDir = zip.folder(folderName);
+
+  // 1. Base template files from window.TEMPLATE_FILES
+  const files = window.TEMPLATE_FILES || [];
+  let loaded = 0;
+  for (const relPath of files) {
+    try {
+      notice(`Đang nạp tệp (${Math.round((loaded / Math.max(1, files.length)) * 100)}%): ${relPath}`);
+      const res = await fetch('/public/' + relPath);
+      if (res.ok) {
+        const blob = await res.blob();
+        rootDir.file(relPath, blob);
+      }
+    } catch (e) {
+      console.warn('Lỗi tải tệp template:', relPath, e);
+    }
+    loaded++;
+  }
+
+  // 2. Referenced assets from content (photos, custom uploads, audio)
+  const assets = contentAssets(content);
+  for (const assetPath of assets) {
+    if (customBlobs.has(assetPath)) {
+      rootDir.file(assetPath, customBlobs.get(assetPath));
+    } else {
+      if (!files.includes(assetPath)) {
+        try {
+          const res = await fetch('/public/' + assetPath);
+          if (res.ok) {
+            const blob = await res.blob();
+            rootDir.file(assetPath, blob);
+          }
+        } catch (e) {
+          console.warn('Lỗi tải asset:', assetPath, e);
+        }
+      }
+    }
+  }
+
+  // 3. Injected content/site.json
+  rootDir.file('content/site.json', JSON.stringify(content, null, 2) + '\n');
+
+  // 4. Injected deployment configuration files
+  rootDir.file('DEPLOY.md', `# Triển khai website Quà tặng 20/10 lên Vercel\n\n1. Giải nén file ZIP này hoặc đẩy các tệp bên trong lên GitHub repository của bạn.\n2. Truy cập https://vercel.com, bấm "Add New... -> Project" và import repository đó.\n3. Vercel tự động nhận diện cấu hình website tĩnh (không cần build command).\n4. Bấm "Deploy" để nhận đường link chia sẻ món quà gửi đến người ấy!\n`);
+  rootDir.file('.gitignore', `.vercel/\n.DS_Store\nThumbs.db\n`);
+  rootDir.file('vercel.json', JSON.stringify({
+    version: 2,
+    framework: null,
+    buildCommand: null,
+    outputDirectory: '.',
+    cleanUrls: true,
+    headers: [
+      {
+        source: '/content/site.json',
+        headers: [
+          { key: 'Cache-Control', 'value': 'no-store, no-cache, must-revalidate' }
+        ]
+      }
+    ]
+  }, null, 2) + '\n');
+
+  // 5. Generate ZIP
+  notice('Đang nén toàn bộ thành file ZIP…');
+  const zipBlob = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  }, (metadata) => {
+    notice(`Đang nén file ZIP: ${metadata.percent.toFixed(0)}%`);
+  });
+
+  return zipBlob;
+}
+
+async function saveBlobToDisk(blob, suggestedFilename) {
   // Modern File System Access API: lets user choose save directory & filename
   if ('showSaveFilePicker' in window) {
     try {
@@ -307,7 +652,7 @@ async function downloadZipFile(url, suggestedFilename) {
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      notice('Đã lưu file ZIP thành công vào thư mục bạn đã chọn! Có thể giải nén hoặc deploy lên Vercel.');
+      notice('✅ Đã lưu file ZIP thành công vào máy tính của bạn!');
       return true;
     } catch (err) {
       if (err.name === 'AbortError') {
@@ -329,59 +674,43 @@ async function downloadZipFile(url, suggestedFilename) {
     URL.revokeObjectURL(blobUrl);
     a.remove();
   }, 1500);
-  notice('Đang tải file ZIP về máy tính của bạn!');
+  notice('✅ Đang tải file ZIP về máy tính của bạn!');
   return true;
 }
 
-$('#export').onclick=()=>{
-  if(!$('#cms-form').reportValidity()) return;
-  run(async()=>{
+$('#export').onclick = () => {
+  if (!$('#cms-form').reportValidity()) return;
+  run(async () => {
     await save();
-    notice('Đang đóng gói ảnh, nhạc và cấu hình Vercel…');
-    const folderName = $('#folder-name').value.trim();
-    let result;
-    try {
-      result = await api('/api/export', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name: folderName, revision })
-      });
-    } catch (err) {
-      if (err.message && err.message.includes('đã được xuất')) {
-        if (confirm(`Tên "${folderName}" đã có bản xuất trước đó. Bạn có muốn ghi đè để tải bản ZIP mới nhất không?`)) {
-          result = await api('/api/export', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: folderName, revision, overwrite: true })
-          });
-        } else {
-          return;
-        }
-      } else {
-        throw err;
-      }
-    }
-    $('#export-result').hidden = false;
-    $('#export-folder').textContent = `Thư mục lưu cục bộ: ${result.folder}`;
-    $('#download').href = result.download;
-    $('#download').download = `${folderName}.zip`;
-    $('#export-preview').href = result.preview;
+    const rawName = $('#folder-name').value.trim() || 'mon-qua-20-10';
+    const folderName = rawName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    notice('Đang khởi tạo trình đóng gói ZIP…');
 
-    // Trigger downloading ZIP and prompt user to choose where to save
-    await downloadZipFile(result.download, `${folderName}.zip`);
+    const zipBlob = await exportZipClientSide(folderName);
+    lastExportBlob = zipBlob;
+
+    $('#export-result').hidden = false;
+    $('#export-folder').textContent = `Tên gói quà tặng: ${folderName}`;
+    $('#download').href = '#';
+    $('#export-preview').href = '/public/index.html';
+
+    await saveBlobToDisk(zipBlob, `${folderName}.zip`);
   });
 };
 
 $('#download').onclick = (e) => {
   e.preventDefault();
-  const folderName = $('#folder-name').value.trim() || 'mon-qua-20-10';
-  const url = $('#download').getAttribute('href');
-  if (url && url !== '#') {
+  const rawName = $('#folder-name').value.trim() || 'mon-qua-20-10';
+  const folderName = rawName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  if (lastExportBlob) {
     run(async () => {
-      await downloadZipFile(url, `${folderName}.zip`);
+      await saveBlobToDisk(lastExportBlob, `${folderName}.zip`);
     });
+  } else {
+    $('#export').click();
   }
 };
+
 function setupVoiceRecorder() {
   const modal = $('#voice-recorder-modal');
   if (!modal) return;
@@ -448,44 +777,42 @@ function setupVoiceRecorder() {
       mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
 
       mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0) audioChunks.push(e.data);
+        if (e.data && e.data.size > 0) audioChunks.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
-        stream.getTracks().forEach(track => track.stop());
-        const actualType = mediaRecorder.mimeType || 'audio/webm';
-        recordedBlob = new Blob(audioChunks, { type: actualType });
+        recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         audioPreview.src = URL.createObjectURL(recordedBlob);
         previewWrap.hidden = false;
-        retryBtn.hidden = false;
-        saveBtn.hidden = false;
-        stopBtn.hidden = true;
-        ringEl.classList.remove('recording');
-        statusEl.textContent = 'Đã thu xong (' + formatDuration(recordSeconds) + '). Bấm nghe thử hoặc Lưu để áp dụng.';
+        stream.getTracks().forEach(t => t.stop());
       };
 
       mediaRecorder.start(250);
-      recordSeconds = 0;
-      timerEl.textContent = '00:00';
-      statusEl.textContent = 'Đang thu âm... Hãy nói tự nhiên vào micro!';
       ringEl.classList.add('recording');
+      statusEl.textContent = 'Đang thu âm... Hãy nói tự nhiên và chân thật nhất';
       startBtn.hidden = true;
       stopBtn.hidden = false;
 
+      recordSeconds = 0;
       recordTimer = setInterval(() => {
         recordSeconds++;
         timerEl.textContent = formatDuration(recordSeconds);
       }, 1000);
 
     } catch (err) {
-      alert('Không thể truy cập Micro: ' + (err.message || 'Vui lòng cấp quyền micro cho trình duyệt.'));
+      alert('Không thể mở micro: ' + err.message + '\nHãy cấp quyền truy cập micro trong trình duyệt.');
     }
   };
 
   stopBtn.onclick = () => {
-    clearInterval(recordTimer);
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
+      clearInterval(recordTimer);
+      ringEl.classList.remove('recording');
+      statusEl.textContent = 'Đã thu xong! Bạn có thể nghe thử bên dưới:';
+      stopBtn.hidden = true;
+      retryBtn.hidden = false;
+      saveBtn.hidden = false;
     }
   };
 
@@ -498,7 +825,7 @@ function setupVoiceRecorder() {
     if (!recordedBlob || !voiceTargetKey) return;
     try {
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Đang tải lên...';
+      saveBtn.textContent = 'Đang lưu...';
 
       const ext = recordedBlob.type.includes('mp4') ? '.m4a' :
                   recordedBlob.type.includes('ogg') ? '.ogg' :
@@ -526,13 +853,48 @@ function setupVoiceRecorder() {
   }
 }
 
-window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-run(async()=>{
-  const result=await api('/api/content');
-  content=result.content;
-  revision=result.revision;
+async function loadContent() {
+  await loadAllBlobsFromIndexedDB();
+
+  // 1. Check local storage
+  const saved = localStorage.getItem('gift_cms_content');
+  if (saved) {
+    try {
+      content = JSON.parse(saved);
+      revision = 'local-' + Date.now();
+      return;
+    } catch (e) {
+      console.warn('Corrupt local storage, falling back to template', e);
+    }
+  }
+
+  // 2. Fetch default template site.json
+  const urls = ['/public/content/site.json', 'public/content/site.json', 'content/site.json'];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        content = await res.json();
+        revision = 'default-' + Date.now();
+        return;
+      }
+    } catch (e) {}
+  }
+
+  throw new Error('Không thể tải tệp nội dung mẫu site.json');
+}
+
+window.addEventListener('beforeunload', event => {
+  if (dirty) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
+
+run(async () => {
+  await loadContent();
   fill();
   setupVoiceRecorder();
-  $('#save-state').textContent='Nội dung đã lưu';
+  $('#save-state').textContent = localStorage.getItem('gift_cms_content') ? 'Nội dung đã lưu (Bộ nhớ máy)' : 'Mẫu thiết kế mặc định';
   notice('');
 });
