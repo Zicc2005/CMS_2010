@@ -421,6 +421,9 @@ function gather() {
       else content[key] = el.value.trim();
     }
   });
+  if (!/^[0-9]{4}$/.test(content.pin)) {
+    throw new Error('Mật khẩu mở quà phải bao gồm đúng 4 chữ số (0000–9999).');
+  }
   content.wishes = $('[name="wishes"]').value.split('\n').map(s => s.trim()).filter(Boolean);
 }
 
@@ -691,7 +694,6 @@ $('#export').onclick = () => {
     $('#export-result').hidden = false;
     $('#export-folder').textContent = `Tên gói quà tặng: ${folderName}`;
     $('#download').href = '#';
-    $('#export-preview').href = '/public/index.html';
 
     await saveBlobToDisk(zipBlob, `${folderName}.zip`);
   });
@@ -860,8 +862,14 @@ async function loadContent() {
   if (saved) {
     try {
       content = JSON.parse(saved);
-      revision = 'local-' + Date.now();
-      return;
+      // Xoá bộ nhớ đệm cũ nếu còn vướng mã PIN cũ hoặc dữ liệu cá nhân
+      if (content.pin === '1410' || content.recipient === 'Chị' || (content.title && content.title.includes('MThy'))) {
+        localStorage.removeItem('gift_cms_content');
+        content = null;
+      } else {
+        revision = 'local-' + Date.now();
+        return;
+      }
     } catch (e) {
       console.warn('Corrupt local storage, falling back to template', e);
     }

@@ -1,95 +1,87 @@
 {
   "version": 1,
   "galleryMode": "rails",
-  "galleryInterval": 5,
+  "galleryInterval": 4,
   "galleryEffect": "fade",
-  "title": "Just for MyThy :>",
-  "hint": "Đoán đi chắc chúng á :3",
-  "sender": "Iem",
-  "recipient": "Chị",
+  "title": "DLove · Món quà nhỏ",
+  "hint": "Gợi ý: Bốn số không (0000)",
+  "sender": "Người gửi",
+  "recipient": "Bạn",
   "cardTitle": "Chúc mừng ngày 20/10",
-  "signature": "Minh Lưu đẹp zai",
-  "holdHint": "Nhấn giữ trái tim để mở quà nah chị ♥",
-  "letter": "Chúc mừng ngày Phụ nữ Việt Nam 20/10 ♥\n\nNhân ngày hôm nay, để thằng em dân IT tặng chị món quà nhỏ này. Chắc cũng không có nhiều ảnh đẹp hay lời chúc nào đủ hay nhưng đây là tấm lòng của em, chúc chị luôn vui vẻ, mạnh mẽ, tươi vui như hiện tại, mong cho con đường sự nghiệp của chị sẽ thật rộng mở, và chúc chị trong năm sẽ có được một công việc với mức lương đủ cao để chị có thể la cà nhiều hơn để khám phá các quán cà phê ở Hà Lội :))\n\nLời cuối em cũng chỉ muốn nói rằng: Cảm ơn một thời kỷ niệm ăn chơi, vui và nhiều bài học thật, cảm ơn chị vì cho em thấy Hà Nội thực sự vui như nào, thế giới sau này còn nhiều thử thách và khó khăn như nào để từ đó em không dễ gục ngã trước mỗi vực thẳm kỳ đồ án này cũng như các kỳ trước đó.",
-  "giftLetter": "Nhưng thôi hôm nay là ngày đặc biệt 20-10, ngày dành cho chị và mọi cô gái trên đất nước Việt Nam, em mong rằng chị sẽ mãi được vui vẻ và hạnh phúc như hiện tại, ngày xong đồ án em cũng mong chị có thể dành thời gian lên coi em ra được trường nữa -.- ôi khó vaiz ấy",
+  "signature": "Thương gửi ♥",
+  "holdHint": "Nhấn giữ trái tim để mở quà ♥",
+  "letter": "Chúc bạn có một ngày 20/10 thật nhiều niềm vui, luôn rạng rỡ, xinh đẹp và ngập tràn hạnh phúc!\n\nMón quà nhỏ này được gửi đến bạn bằng tất cả sự chân thành và trân trọng nhất.",
+  "giftLetter": "Mong rằng nụ cười sẽ luôn ở trên môi bạn mỗi ngày. Chúc bạn luôn tự tin, yêu đời và đạt được mọi điều mình mong muốn!",
   "flyingText": "Chúc mừng ngày Phụ nữ Việt Nam 20/10",
-  "envelopeSub": "Tặng chị",
-  "envelopeTitle": "MThy",
-  "envelopeDesc": "Món quả của em nè",
-  "pin": "1410",
+  "envelopeSub": "Dành tặng bạn",
+  "envelopeTitle": "Món quà nhỏ",
+  "envelopeDesc": "Một chút yêu thương gửi đến bạn",
+  "pin": "0000",
   "photos": [
-    "uploads/bcf7f06f5c47499da619fe49adb431a6.png",
-    "uploads/e8a9ad00b84b4716984f1374bd35cc1c.png",
-    "uploads/4dc8b1c2410f42cbb2b201144a5a9fd4.png",
-    "uploads/7065571163694ffda371338de595426e.png",
-    "uploads/baaa29b133b749aaabce91daeb7c3b20.png",
-    "uploads/313d24ac7ceb4fd59b9a65ff70c45f0a.png",
-    "uploads/2155f917bc4f4d8fbed8631026d7f03c.png",
-    "uploads/9bbc271903ed40b6aebf221d5b873a1d.png",
-    "uploads/a7a8400d014a4e72889b3ab9b0d4e8bf.png",
-    "uploads/9b81a111a4aa42bb838ac2745bf55146.png",
-    "uploads/cd4c9d21144b4302a056a427bbfa519c.png"
+    "gift/assets/photo-1.jpg",
+    "gift/assets/photo-2.jpg",
+    "gift/assets/photo-3.jpg",
+    "gift/assets/photo-4.jpg",
+    "gift/assets/photo-5.jpg",
+    "gift/assets/photo-6.jpg"
   ],
-  "lockImage": "uploads/6f0fb2774b364469952ae49328df3f36.png",
-  "letterImage": "uploads/ca2ea14bb2894b399be53cfa1be6b159.png",
+  "lockImage": "gift/assets/photo-3.jpg",
+  "letterImage": "gift/assets/photo-1.jpg",
   "bouquetPhotos": [
-    "uploads/e8a9ad00b84b4716984f1374bd35cc1c.png",
-    "uploads/bcf7f06f5c47499da619fe49adb431a6.png",
-    "uploads/6f0fb2774b364469952ae49328df3f36.png",
-    "uploads/4dc8b1c2410f42cbb2b201144a5a9fd4.png",
-    "uploads/ca2ea14bb2894b399be53cfa1be6b159.png",
-    "uploads/cf7833a11dd6404398645b4483b41989.png"
+    "gift/assets/photo-1.jpg",
+    "gift/assets/photo-2.jpg",
+    "gift/assets/photo-3.jpg",
+    "gift/assets/photo-4.jpg",
+    "gift/assets/photo-5.jpg",
+    "gift/assets/photo-6.jpg"
   ],
   "wishes": [
-    "Chúc chị luôn hạnh phúc",
-    "Chúc mừng ngày 20/10",
-    "Daika Mthy mãi 8386 nha",
-    "Conan giới săn tìm quán caffee",
-    "20 / 10",
-    "Quý chị nhất :)",
-    "Luôn rạng rỡ như hoa",
-    "Cảm ơn vì đã có chị :3",
-    "Mỗi ngày một niềm vui nha !"
+    "Chúc bạn luôn xinh đẹp và rạng rỡ",
+    "Mỗi ngày đều là một ngày ngập tràn niềm vui",
+    "Luôn tự tin tỏa sáng theo cách của riêng mình",
+    "Hạnh phúc, bình an và ngập tràn may mắn",
+    "Thành công trên mọi con đường bạn chọn",
+    "Chúc mừng ngày Phụ nữ Việt Nam 20/10 ♥"
   ],
   "background": {
     "type": "video",
-    "src": "uploads/fba52ba6aa4c4108b0b1d648d505ecf7.mp4"
+    "src": "background/bg.mp4"
   },
   "music": {
     "intro": "gift/assets/calendar-melody.wav",
     "gift": "gift/assets/music.m4a",
-    "gallery": "uploads/e57a9f2b8db245819b999315dff89c55.mp3",
-    "letter": "uploads/fca11ed799a44bbc81f44f81d0f5a32e.mp3",
+    "gallery": "gift/assets/greeting-20-10.mp3",
+    "letter": "",
     "playlist": [
       {
-        "title": "Mthy",
-        "artist": "Dành tặng cậu",
+        "title": "Giai điệu 1",
+        "artist": "Dành tặng bạn",
         "src": "sound/1.mp3",
-        "cover": "uploads/bcf7f06f5c47499da619fe49adb431a6.png"
+        "cover": "gift/assets/photo-1.jpg"
       },
       {
-        "title": "Luôn",
-        "artist": "Dành tặng cậu",
+        "title": "Giai điệu 2",
+        "artist": "Dành tặng bạn",
         "src": "sound/2.mp3",
-        "cover": "uploads/4dc8b1c2410f42cbb2b201144a5a9fd4.png"
+        "cover": "gift/assets/photo-2.jpg"
       },
       {
-        "title": "Là",
-        "artist": "Dành tặng cậu",
+        "title": "Giai điệu 3",
+        "artist": "Dành tặng bạn",
         "src": "sound/3.mp3",
-        "cover": "uploads/313d24ac7ceb4fd59b9a65ff70c45f0a.png"
+        "cover": "gift/assets/photo-3.jpg"
       },
       {
-        "title": "Đỉnh",
-        "artist": "Dành tặng cậu",
+        "title": "Giai điệu 4",
+        "artist": "Dành tặng bạn",
         "src": "sound/4.mp3",
-        "cover": "uploads/ca2ea14bb2894b399be53cfa1be6b159.png"
+        "cover": "gift/assets/photo-4.jpg"
       },
       {
-        "title": "Nhất",
-        "artist": "Dành tặng cậu",
+        "title": "Giai điệu 5",
+        "artist": "Dành tặng bạn",
         "src": "sound/5.mp3",
-        "cover": "uploads/9b81a111a4aa42bb838ac2745bf55146.png"
+        "cover": "gift/assets/photo-5.jpg"
       }
     ]
   }
